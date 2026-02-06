@@ -40,7 +40,7 @@ Most developers skip IAM because it's complex. But **IAM is where breaches happe
 │                                                     │
 │  ┌─────────────────────┐    ┌──────────────────┐   │
 │  │ SECURITY ACCOUNT    │    │ WORKLOAD ACCOUNT │   │
-│  │ (489157521585)      │    │ (657654036224)   │   │
+│  │ (111122223333)      │    │ (657654036224)   │   │
 │  │                     │    │                  │   │
 │  │ security-admin user │    │                  │   │
 │  │ + MFA               │───▶│ SecurityAuditRole│   │
@@ -103,7 +103,7 @@ cd aws-iam-crossaccount
 
 # Update terraform.tfvars with your account IDs
 cat > terraform.tfvars <<EOF
-security_account_id = "489157521585"
+security_account_id = "111122223333"
 workload_account_id = "657654036224"
 external_id         = "MyUniqueSecretValue123"
 aws_profile         = "workload-account"
@@ -125,7 +125,7 @@ terraform apply
     {
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::489157521585:user/security-admin"
+        "AWS": "arn:aws:iam::111122223333:user/security-admin"
       },
       "Action": "sts:AssumeRole",
       "Condition": {
@@ -184,7 +184,7 @@ aws sts assume-role \
   --role-arn arn:aws:iam::657654036224:role/SecurityAuditRole \
   --role-session-name test-session \
   --external-id MyUniqueSecretValue123 \
-  --serial-number arn:aws:iam::489157521585:mfa/pixel1 \
+  --serial-number arn:aws:iam::111122223333:mfa/pixel1 \
   --token-code 123456 \
   --profile security-account
 ```
@@ -240,7 +240,7 @@ aws-iam-crossaccount/
   }
 }
 ```
-**Means:** Only the security-admin user in account 489157521585 can assume this role.
+**Means:** Only the security-admin user in account 111122223333 can assume this role.
 
 ### 2. ExternalId (Extra Password)
 

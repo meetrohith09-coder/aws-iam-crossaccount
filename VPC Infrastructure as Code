@@ -1,0 +1,380 @@
+# Project 2: VPC Infrastructure as Code
+
+![AWS](https://img.shields.io/badge/AWS-VPC-orange)
+![Terraform](https://img.shields.io/badge/Terraform-IaC-blue)
+![Security](https://img.shields.io/badge/Security-Production--Grade-green)
+
+## What Is This Project? (In Simple Words)
+
+Imagine you want to build a house. You could hire workers to build it piece by piece (clicking in AWS console). OR you could give them blueprints and they build it exactly as written (Terraform code).
+
+**This project is the blueprints.** Instead of clicking AWS buttons hundreds of times, we wrote code that builds an entire network in minutes.
+
+Think of it like this:
+- **Without code:** Click AWS console → Create VPC → Create subnets → Create route tables → Create security groups → Create NAT gateways (50+ clicks, easy to make mistakes)
+- **With code (This project):** Run `terraform apply` → Everything created in 2 minutes, exactly the same every time
+
+---
+
+## What Does It Actually Do?
+
+This project creates a **secure network for a company's applications** on AWS.
+
+### The Basic Idea
+
+You have 3 types of computers/services:
+
+1. **Front door (Public):** Customers can access these from the internet
+   - Think: Reception desk
+   - Gets public internet access
+   - Example: Website load balancer
+
+2. **Middle layer (Private):** Application servers that handle requests
+   - Think: Office workers
+   - Hidden from internet (can't be hacked from outside)
+   - Can still reach internet for updates via a special gateway (NAT Gateway)
+
+3. **Vault (Data):** Databases with sensitive information
+   - Think: Vault with company secrets
+   - Completely hidden
+   - No internet access at all
+   - Only the middle layer can talk to it
+
+---
+
+## What Gets Built
+
+When you run this code, it creates:
+
+### **Network (VPC)**
+- 1 main network: `10.0.0.0/16` (65,000+ addresses)
+- Like a city block where you'll build everything
+
+### **6 Subnets (Neighborhoods)**
+- **2 Public** (10.0.1.0/24, 10.0.2.0/24) - Internet-facing
+- **2 Private** (10.0.10.0/24, 10.0.20.0/24) - App servers
+- **2 Data** (10.0.100.0/24, 10.0.200.0/24) - Databases
+
+### **Internet Gateway**
+- The front gate - lets traffic in/out from internet
+
+### **2 NAT Gateways**
+- One-way exits for private servers to reach internet
+- Like a security checkpoint - servers can ask for updates, but internet can't start conversations with servers
+
+### **4 Security Groups (Bouncers)**
+Each one decides who can talk to who:
+- **ALB Bouncer:** Only allows HTTPS traffic (port 443) from anywhere
+- **App Bouncer:** Only allows port 8080 from ALB bouncer
+- **Database Bouncer:** Only allows port 5432 from App bouncer
+- **Bastion Bouncer:** Only allows SSH (port 22) for admin access
+
+### **Route Tables (Traffic Signs)**
+- Public route: "Go to internet via IGW"
+- Private route: "Go to internet via NAT Gateway"
+- Data route: "Go nowhere (completely isolated)"
+
+### **VPC Flow Logs (Security Camera)**
+- Records every packet of traffic
+- Like CCTV for your network
+- Helps investigate if something suspicious happens
+
+---
+
+## Why Is This Good?
+
+### 🔒 Security
+- **Attackers can't directly reach databases** - they're hidden
+- **Compromising one layer doesn't expose others** - if an app server is hacked, the database is still safe
+- **Every connection is logged** - you know exactly who talked to who
+
+### 📈 Scalability
+- **Easy to add more servers** - just change a number in the code
+- **Works across 2 data centers (AZs)** - if one fails, you still work
+- **No single point of failure** - 2 NAT Gateways means redundancy
+
+### 💰 Cost Effective
+- **Infrastructure as Code** - build same setup in multiple regions easily
+- **No overpaying** - only pay for what you use
+- **Automatic cleanup** - one command deletes everything
+
+### 🔄 Reproducible
+- **Same setup every time** - no accidental differences
+- **Easy to version control** - keep code in git, track changes
+- **Easy to test changes** - test in dev before prod
+
+---
+
+## How It Works (High Level)
+
+```
+┌─────────────────────────────────────────────┐
+│         Internet (Outside World)            │
+└────────────────────┬────────────────────────┘
+                     │
+                     ▼
+         ┌───────────────────────┐
+         │  Internet Gateway     │
+         │  (The Front Gate)     │
+         └────────────┬──────────┘
+                      │
+         ┌────────────▼──────────┐
+         │  Public Subnets       │
+         │  (ALB - Reception)    │
+         │  Port: 443 (HTTPS)    │
+         └────────────┬──────────┘
+                      │
+         ┌────────────▼──────────┐
+         │  Private Subnets      │
+         │  (Apps - Workers)     │
+         │  Port: 8080           │
+         │  Can reach internet   │
+         │  via NAT Gateway      │
+         └────────────┬──────────┘
+                      │
+         ┌────────────▼──────────┐
+         │  Data Subnets         │
+         │  (Databases - Vault)  │
+         │  Port: 5432 (DB)      │
+         │  NO internet access   │
+         └───────────────────────┘
+```
+
+---
+
+## Project Structure
+
+```
+vpc-infrastructure-as-code/
+├── README.md                    # This file
+├── terraform/
+│   ├── main.tf                 # AWS provider setup
+│   ├── vpc.tf                  # VPC and subnets
+│   ├── nat.tf                  # NAT Gateways
+│   ├── routing.tf              # Route tables
+│   ├── security_groups.tf      # Bouncers (firewalls)
+│   ├── flow_logs.tf            # Security camera logs
+│   ├── variables.tf            # Configuration options
+│   ├── outputs.tf              # What gets printed at end
+│   └── terraform.tfvars        # Your specific values
+└── docs/
+    └── architecture.md         # Detailed explanation
+```
+
+---
+
+## What Each File Does
+
+| File | Does What |
+|------|-----------|
+| **main.tf** | Tells Terraform "use AWS" and sets up the AWS connection |
+| **vpc.tf** | Creates the network and 6 neighborhoods (subnets) |
+| **nat.tf** | Creates 2 exit gates (NAT Gateways) for private servers |
+| **routing.tf** | Creates signs that tell traffic where to go |
+| **security_groups.tf** | Creates 4 bouncers that decide who can talk to who |
+| **flow_logs.tf** | Sets up security cameras to record traffic |
+| **variables.tf** | Says "these are the settings you can change" |
+| **outputs.tf** | Says "print out these IDs at the end" |
+| **terraform.tfvars** | Your actual settings (e.g., "2 availability zones") |
+
+---
+
+## Numbers & Specs
+
+| Specification | Value | Why? |
+|---|---|---|
+| **VPC CIDR** | 10.0.0.0/16 | Gives 65,536 IP addresses (plenty) |
+| **Public Subnets** | 10.0.1.0/24, 10.0.2.0/24 | 254 IPs each (enough for ALB + NAT) |
+| **Private Subnets** | 10.0.10.0/24, 10.0.20.0/24 | 254 IPs each (enough for app servers) |
+| **Data Subnets** | 10.0.100.0/24, 10.0.200.0/24 | 254 IPs each (databases) |
+| **Availability Zones** | 2 (us-east-2a, us-east-2b) | If one fails, other works |
+| **NAT Gateways** | 2 (one per AZ) | High availability (no single point of failure) |
+| **Security Groups** | 4 (ALB, App, DB, Bastion) | Least privilege access |
+| **Route Tables** | 3 (public, private, data) | Different routing for each tier |
+| **VPC Flow Logs** | CloudWatch + S3 | 7-day retention + long-term archive |
+
+---
+
+## How to Use This
+
+### Prerequisites
+- AWS account (Workload Account)
+- Terraform installed
+- AWS CLI configured
+
+### Quick Start
+
+```bash
+# 1. Clone or download this code
+cd vpc-infrastructure-as-code/terraform
+
+# 2. Initialize Terraform
+terraform init
+
+# 3. See what will be created
+terraform plan
+
+# 4. Build it
+terraform apply
+
+# 5. View what was created
+terraform output
+```
+
+### What You Get
+- VPC ID
+- 6 Subnet IDs
+- 2 NAT Gateway IPs
+- 4 Security Group IDs
+- Internet Gateway ID
+- CloudWatch log group for logs
+
+### Clean Up (Delete Everything)
+
+```bash
+terraform destroy
+```
+
+---
+
+## Key Learnings from This Project
+
+### 1. **Defense in Depth**
+Multiple layers of security instead of one big wall:
+- Layer 1: Network isolation (subnets)
+- Layer 2: Access control (security groups)
+- Layer 3: Logging (flow logs)
+
+### 2. **Infrastructure as Code**
+Write code that builds infrastructure:
+- ✅ Reproducible (same every time)
+- ✅ Version controlled (track changes)
+- ✅ Scriptable (no manual clicking)
+- ✅ Fast (minutes instead of hours)
+
+### 3. **High Availability**
+Design for failure:
+- ✅ 2 availability zones (if one dies, you survive)
+- ✅ 2 NAT Gateways (redundancy)
+- ✅ No single point of failure
+
+### 4. **Least Privilege**
+Give each layer only what it needs:
+- ALB gets internet access (needs it)
+- Apps get internet access via NAT only (can't receive)
+- Databases get NO internet (don't need it)
+
+---
+
+## Real-World Usage
+
+This exact pattern is used by:
+- **Netflix** - For managing 100+ account infrastructure
+- **Uber** - For isolated workloads
+- **AWS itself** - In their own best practices
+- **Most enterprises** - Production standard
+
+The only differences at scale are:
+- More subnets (but same pattern)
+- More security groups (but same rules)
+- Add other services (RDS, ElastiCache, etc.)
+- Add monitoring (CloudWatch alarms)
+
+---
+
+## Security Decisions Made
+
+### Why 3 Tiers?
+- **Public:** Only ALB exposed = smaller attack surface
+- **Private:** Apps hidden = requires 2 hops to compromise
+- **Data:** Complete isolation = maximum protection
+
+### Why 2 Availability Zones?
+- AWS guarantees each AZ can fail independently
+- If entire zone goes down, other still works
+- Automatic failover possible
+
+### Why No Egress from Data Tier?
+- Databases don't call external APIs
+- Prevents data exfiltration if compromised
+- Compliance requirement for PCI-DSS, HIPAA, etc.
+
+### Why VPC Flow Logs?
+- Forensics: "What happened during breach?"
+- Compliance: "Prove you monitor traffic"
+- Detection: "Alert on suspicious patterns"
+
+---
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| "terraform not found" | Install Terraform: `brew install terraform` |
+| "credentials not configured" | Run `aws configure --profile workload-account` |
+| "quota exceeded" | Check NAT Gateway quota in your region |
+| "VPC already exists" | Run `terraform destroy` first |
+
+---
+
+## Cost Estimate
+
+| Component | Cost/Month |
+|-----------|-----------|
+| VPC | Free |
+| Subnets (6) | Free |
+| Internet Gateway | Free |
+| NAT Gateways (2) | $32 ($16 each) |
+| Route Tables | Free |
+| Security Groups | Free |
+| VPC Flow Logs | ~$5 |
+| **Total** | **~$37/month** |
+
+(Assuming basic usage - data transfer costs extra)
+
+---
+
+## Next Steps
+
+After building this, you could add:
+- **EC2 instances** in the private subnets
+- **RDS database** in the data subnets
+- **Application Load Balancer** in public subnets
+- **Auto Scaling** for app servers
+- **CloudWatch Alarms** for monitoring
+- **VPC Endpoints** for AWS service access
+
+---
+
+## What This Demonstrates
+
+✅ Infrastructure as Code (Terraform)
+✅ Network design (VPC architecture)
+✅ Security principles (defense in depth)
+✅ High availability (multi-AZ)
+✅ AWS best practices
+✅ Production-grade thinking
+
+---
+
+## Questions?
+
+This project shows you understand:
+- How networks actually work
+- Security thinking (not just access control)
+- Infrastructure automation
+- AWS best practices
+
+Anyone reviewing this will see you can think at the architecture level, not just the "click console" level.
+
+---
+
+## License
+
+MIT - Feel free to use this as a template for your own infrastructure
+
+---
+
+**Built with:** Terraform, AWS, and attention to security best practices.
+
+**For:** Anyone building scalable, secure cloud infrastructure.
